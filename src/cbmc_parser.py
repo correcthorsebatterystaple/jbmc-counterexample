@@ -17,7 +17,6 @@ def generate_java(filename, counterexample_inputs):
 def compile_and_run_java(jbmc_path, filepath):
     subprocess.run(["javac", filepath])
     filename = filepath.split(".")[0]
-    print(filename)
     xml_text = subprocess.run([jbmc_path, filename, "--function", filename + ".test", "--unwind", "5",
                     "--trace", "--xml-ui"], capture_output=True, text=True)
 
@@ -30,7 +29,7 @@ def get_inputs(filename):
     tree = ET.parse(file)
     root = tree.getroot()
 
-    failed_results = filter(lambda r: r.get('status') == 'FAILURE', root.findall('result'))
+    failed_results = [r for r in root.findall('result') if r.get('status') == 'FAILURE']
     for result in failed_results:
         goto_trace = result.find('goto_trace')
 
