@@ -21,44 +21,34 @@ def compile_and_run_java(jbmc_path, filepath):
     xml_text = subprocess.run([jbmc_path, filename, "--function", filename + ".test", "--unwind", "5",
                     "--trace", "--xml-ui"], capture_output=True, text=True)
 
-    with open(filename + ".txt", "w") as f:
+    with open(filename + ".xml", "w") as f:
         f.write(xml_text.stdout)
 
 
 def get_inputs(filename):
-    file = open(filename + ".txt", "rb")
-    tree = etree.parse(file)
+    file = open(filename + ".xml", "rb")
+    tree = ET.parse(file)
     root = tree.getroot()
-    for child in root:
-        if child.tag == 'result' and child.attrib['status'] == 'FAILURE':
 
-            # Get goto_trace
-            goto_trace = None
-            for child1 in child:
-                if child1.tag == "goto_trace":
-                    goto_trace = child1
-                    break
+    failed_results = filter(lambda r: r.get('status') == 'FAILURE', root.findall('result'))
+    for result in failed_results:
+        goto_trace = result.find('goto_trace')
 
-            inputs_list = {}
-            for goto_trace_child in goto_trace:
-                if goto_trace_child.tag == 'assignment' \
-                        and goto_trace_child.attrib['base_name'].startswith('arg'):
-                    value_type = None
-                    actual_value = None
-                    for attribute in goto_trace_child:
-                        if attribute.tag == 'type':
-                            value_type = attribute.text
+        inputs_list = {}
+        for trace in goto_trace:
+            if (
+                trace.tag == 'assignment' and 
+                trace.attrib['base_name'].startswith('arg')
+            ):
+                value_type = trace.find('type').text
+                actual_value = trace.find('full_lhs_value').text
 
-                        if attribute.tag == 'full_lhs_value':
-                            actual_value = attribute.text
+                base_name = trace.get('base_name')
 
-                    if goto_trace_child.attrib['base_name'] not in inputs_list:
-                        inputs_list[goto_trace_child.attrib['base_name']] = {}
+                inputs_list.setdefault(base_name, {})
+                inputs_list[base_name] = {'type': value_type, 'value': actual_value}
 
-                    inputs_list[goto_trace_child.attrib['base_name']]['type'] = value_type
-                    inputs_list[goto_trace_child.attrib['base_name']]['value'] = actual_value
-
-            return inputs_list
+        return inputs_list
 
 jbmc_path = sys.argv[1]
 filepath = sys.argv[2]
