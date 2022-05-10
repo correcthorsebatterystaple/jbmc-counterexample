@@ -19,11 +19,11 @@ def generate_java(filename, counterexample_inputs):
 
 
 # Code to compile the Java file and run JBMC with a specified path until running from outside Java file folder works correctly
-def compile_and_run_java(filepath):
+def compile_and_run_java(jbmc_path, filepath):
     subprocess.run(["javac", filepath])
     filename = filepath.split(".")[0]
     print(filename)
-    xml_text = subprocess.run(["../../../cbmc/jbmc/src/jbmc/jbmc", filename, "--function", filename + ".test", "--unwind", "5",
+    xml_text = subprocess.run([jbmc_path, filename, "--function", filename + ".test", "--unwind", "5",
                     "--trace", "--xml-ui"], capture_output=True, text=True)
 
     with open(filename + ".txt", "w") as f:
@@ -74,10 +74,10 @@ def get_inputs(filename):
             print(inputs_list)
             return inputs_list
 
+jbmc_path = sys.argv[1]
+filepath = sys.argv[2]
 
-filepath = sys.argv[1]
-
-compile_and_run_java(filepath)
+compile_and_run_java(jbmc_path, filepath)
 filename = filepath.split(".")[0]
 counterexample_inputs = get_inputs(filename)
 
