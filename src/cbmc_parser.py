@@ -7,7 +7,7 @@ import sys
 def generate_java(filename, counterexample_inputs):
     code = "class Counterexample { \n \tpublic static void main(String[] args) { \n \t"
     for input_var in counterexample_inputs:
-        code += f'\t{counterexample_inputs[input_var]["type"]} {input_var} =' \
+        code += f'\t{counterexample_inputs[input_var]["type"]} {input_var} = ' \
                 f'{counterexample_inputs[input_var]["value"]}; \n \t'
 
     code += f'\t{filename}.test({", ".join(counterexample_inputs.keys())}); \n \t'
@@ -23,7 +23,7 @@ def compile_and_run_java(filepath):
     subprocess.run(["javac", filepath])
     filename = filepath.split(".")[0]
     print(filename)
-    xml_text = subprocess.run(["../../../../cbmc/jbmc/src/jbmc/jbmc", filename, "--function", filename + ".test", "--unwind", "5",
+    xml_text = subprocess.run(["../../../cbmc/jbmc/src/jbmc/jbmc", filename, "--function", filename + ".test", "--unwind", "5",
                     "--trace", "--xml-ui"], capture_output=True, text=True)
 
     with open(filename + ".txt", "w") as f:
