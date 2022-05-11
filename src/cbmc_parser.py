@@ -4,7 +4,7 @@ from java_compiler import compile_java_class
 from jbmc_runner import get_trace_xml
 from input_parser import get_inputs
 
-def main(argv: list[str]):
+def main(argv):
     jbmc_path = argv[1]
     file_path = argv[2]
     filename = file_path.split('.')[0]
