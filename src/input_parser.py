@@ -1,4 +1,6 @@
 import xml.etree.ElementTree as ET
+from helpers import nested_set
+from input_type_checker import is_array_type, is_class_type, is_primitive_type
 
 def get_inputs(xml_source: str):
     """
@@ -24,8 +26,8 @@ def get_inputs(xml_source: str):
                 trace.tag == 'assignment' and 
                 trace.attrib['base_name'].startswith('arg')
             ):
-                value_type = trace.find('type').text
-                actual_value = trace.find('full_lhs_value').text
+                value_type = get_input_type(trace)
+                actual_value = get_input_value(trace, goto_trace)
 
                 base_name = trace.get('base_name')
 
@@ -35,3 +37,85 @@ def get_inputs(xml_source: str):
         reason = goto_trace.find('failure').get('reason')
         inputs.append({'inputs': inputs_list, 'reason': reason})
     return inputs
+
+def get_input_type(assignment: ET.Element) -> str:
+    """Return the java type string"""
+    assert assignment.tag == 'assignment'
+    assignment_type_text = assignment.findtext('type')
+
+    if is_primitive_type(assignment_type_text):
+        return assignment_type_text
+
+    if is_array_type(assignment_type_text):
+        return get_array_input_type(assignment_type_text)
+
+    if is_class_type(assignment_type_text):
+        return get_class_input_type(assignment_type_text)
+    
+    raise NotImplementedError(f'\'{assignment_type_text}\' input type not implemented')
+    
+def get_array_input_type(type_text: str) -> str:
+    """Returns the java type string for array types"""
+    pass
+
+def get_class_input_type(type_text: str) -> str:
+    """Returns the java type string for class types"""
+    assert type_text.startswith('struct')
+    class_name = type_text.split(' ')[1]
+    return class_name
+
+def get_input_value(assignment: ET.Element, trace: ET.Element) -> str:
+    """Gets java values for assignments"""
+    assert assignment.tag == 'assignment'
+    assignment_value_text = assignment.findtext('full_lhs_value')
+    assignment_type_text = assignment.findtext('type')
+
+    if assignment_value_text == 'null':
+        return 'null'
+
+    if is_primitive_type(assignment_type_text):
+        return assignment_value_text
+    
+    if is_array_type(assignment_type_text):
+        return get_array_input_value()
+
+    if is_class_type(assignment_type_text):
+        return get_class_input_value(assignment_value_text, trace)
+
+    raise NotImplementedError(f'\'{assignment_type_text}\' input type not implemented')
+
+def get_array_input_value() -> str:
+    pass
+
+def get_class_input_value(assignment_value_text: str, trace: ET.Element) -> dict:
+    return get_dynamic_obj_value(assignment_value_text[1:], trace)
+
+def get_dynamic_obj_value(dynamic_obj_name: str, trace: ET.Element) -> dict:
+    assignments = [a for a in trace.findall('assignment') if a.get('base_name') == dynamic_obj_name]
+    val = {}
+    for assignment in assignments:
+        full_lhs_text = assignment.findtext('full_lhs')
+        full_lhs_value_text = assignment.findtext('full_lhs_value')
+
+        # Filter out grouped assignments to dynamic objs
+        if full_lhs_value_text.startswith('{'):
+            continue
+
+        # Assign class type to the dynamic object
+        if full_lhs_text == f'{dynamic_obj_name}.@java.lang.Object.@class_identifier':
+            val['__class'] = full_lhs_value_text.strip('"').split('::')[-1]
+            continue
+
+        # if value is another dynamic object then make recursive call
+        if full_lhs_value_text.startswith('&'):
+            value = get_dynamic_obj_value(full_lhs_value_text[1:], trace)
+        else:
+            value = full_lhs_value_text
+
+        key_path = full_lhs_text.split('.')[1:]
+        nested_set(val, key_path, value)
+        
+    return val
+
+
+
