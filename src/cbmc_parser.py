@@ -1,19 +1,8 @@
-import xml.etree.ElementTree as ET
-from lxml import etree
 import sys
 from java_generator import generate_java_source
 from java_compiler import compile_java_class
 from jbmc_runner import get_trace_xml
 from input_parser import get_inputs
-
-# jbmc_path = sys.argv[1]
-# filepath = sys.argv[2]
-
-# compile_and_run_java(jbmc_path, filepath)
-# filename = filepath.split(".")[0]
-# counterexample_inputs = get_inputs(filename)
-
-# generate_java(filename, counterexample_inputs)
 
 def main(argv: list[str]):
     jbmc_path = argv[1]
