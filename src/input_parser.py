@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as ET
+from helpers import nested_set
 
 PRIMITIVE_TYPES = set(['int'])
 
@@ -86,7 +87,35 @@ def get_input_value(assignment: ET.Element, trace: ET.Element) -> str:
 def get_array_input_value() -> str:
     pass
 
-def get_class_input_value(assignment_value_text: str, trace: ET.Element) -> str:
-    pass
+def get_class_input_value(assignment_value_text: str, trace: ET.Element) -> dict:
+    return get_dynamic_obj_value(assignment_value_text[1:], trace)
+
+def get_dynamic_obj_value(dynamic_obj_name: str, trace: ET.Element) -> dict:
+    assignments = [a for a in trace.findall('assignment') if a.get('base_name') == dynamic_obj_name]
+    val = {}
+    for assignment in assignments:
+        full_lhs_text = assignment.findtext('full_lhs')
+        full_lhs_value_text = assignment.findtext('full_lhs_value')
+
+        # Filter out grouped assignments to dynamic objs
+        if full_lhs_value_text.startswith('{'):
+            continue
+
+        # Assign class type to the dynamic object
+        if full_lhs_text == f'{dynamic_obj_name}.@java.lang.Object.@class_identifier':
+            val['__class'] = full_lhs_value_text.strip('"').split('::')[-1]
+            continue
+
+        # if value is another dynamic object then make recursive call
+        if full_lhs_value_text.startswith('&'):
+            value = get_dynamic_obj_value(full_lhs_value_text[1:], trace)
+        else:
+            value = full_lhs_value_text
+
+        key_path = full_lhs_text.split('.')[1:]
+        nested_set(val, key_path, value)
+        
+    return val
+
 
 
