@@ -1,62 +1,45 @@
 import xml.etree.ElementTree as ET
 from lxml import etree
-import subprocess
 import sys
 from java_generator import generate_java_source
+from java_compiler import compile_java_class
+from jbmc_runner import get_trace_xml
+from input_parser import get_inputs
 
-# Code to generate a java file with inputs for the test function of the supplied class
-def generate_java(filename, counterexample_inputs):
-    code = generate_java_source(filename, counterexample_inputs)
+# jbmc_path = sys.argv[1]
+# filepath = sys.argv[2]
 
-    with open("Counterexample.java", "w") as f:
-        f.write(code)
-    return
+# compile_and_run_java(jbmc_path, filepath)
+# filename = filepath.split(".")[0]
+# counterexample_inputs = get_inputs(filename)
 
+# generate_java(filename, counterexample_inputs)
 
-# Code to compile the Java file and run JBMC with a specified path until running from outside Java file folder works correctly
-def compile_and_run_java(jbmc_path, filepath):
-    subprocess.run(["javac", filepath])
-    filename = filepath.split(".")[0]
-    xml_text = subprocess.run([jbmc_path, filename, "--function", filename + ".test", "--unwind", "5",
-                    "--trace", "--xml-ui"], capture_output=True, text=True)
+def main(argv: list[str]):
+    jbmc_path = argv[1]
+    file_path = argv[2]
+    filename = file_path.split('.')[0]
 
-    with open(filename + ".xml", "w") as f:
-        f.write(xml_text.stdout)
+    compile_java_class(file_path)
+    trace_xml_source = get_trace_xml(jbmc_path, filename)
 
+    counterexample_inputs = get_inputs(trace_xml_source)
 
-def get_inputs(filename):
-    file = open(filename + ".xml", "rb")
-    tree = ET.parse(file)
-    root = tree.getroot()
+    for i, counterexample_input in enumerate(counterexample_inputs):
+        reason = counterexample_input['reason']
+        inputs = counterexample_input['inputs']
+        print(reason)
+        out_class_name = f'CounterExample{i}'
+        source = generate_java_source(
+            test_class_name=filename, 
+            out_class_name=out_class_name, 
+            counterexample_inputs=inputs, reason=reason
+        )
+        with open(out_class_name + '.java', 'w') as file:
+            file.write(source)
 
-    failed_results = [r for r in root.findall('result') if r.get('status') == 'FAILURE']
-    for result in failed_results:
-        goto_trace = result.find('goto_trace')
-
-        inputs_list = {}
-        for trace in goto_trace:
-            if (
-                trace.tag == 'assignment' and 
-                trace.attrib['base_name'].startswith('arg')
-            ):
-                value_type = trace.find('type').text
-                actual_value = trace.find('full_lhs_value').text
-
-                base_name = trace.get('base_name')
-
-                inputs_list.setdefault(base_name, {})
-                inputs_list[base_name] = {'type': value_type, 'value': actual_value}
-
-        return inputs_list
-
-jbmc_path = sys.argv[1]
-filepath = sys.argv[2]
-
-compile_and_run_java(jbmc_path, filepath)
-filename = filepath.split(".")[0]
-counterexample_inputs = get_inputs(filename)
-
-generate_java(filename, counterexample_inputs)
+if __name__ == '__main__':
+    main(sys.argv)
 
 
 
