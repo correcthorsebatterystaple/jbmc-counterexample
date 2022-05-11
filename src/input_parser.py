@@ -1,7 +1,6 @@
 import xml.etree.ElementTree as ET
 from helpers import nested_set
-
-PRIMITIVE_TYPES = set(['int'])
+from input_type_checker import is_array_type, is_class_type, is_primitive_type
 
 def get_inputs(xml_source: str):
     """
@@ -44,13 +43,13 @@ def get_input_type(assignment: ET.Element) -> str:
     assert assignment.tag == 'assignment'
     assignment_type_text = assignment.findtext('type')
 
-    if assignment_type_text in PRIMITIVE_TYPES:
+    if is_primitive_type(assignment_type_text):
         return assignment_type_text
 
-    if assignment_type_text.startswith('struct java::array'):
+    if is_array_type(assignment_type_text):
         return get_array_input_type(assignment_type_text)
 
-    if assignment_type_text.startswith('struct'):
+    if is_class_type(assignment_type_text):
         return get_class_input_type(assignment_type_text)
     
     raise NotImplementedError(f'\'{assignment_type_text}\' input type not implemented')
@@ -73,13 +72,13 @@ def get_input_value(assignment: ET.Element, trace: ET.Element) -> str:
     if assignment_value_text == 'null':
         return 'null'
 
-    if assignment_type_text in PRIMITIVE_TYPES:
+    if is_primitive_type(assignment_type_text):
         return assignment_value_text
     
-    if assignment_type_text.startswith('struct java::array'):
+    if is_array_type(assignment_type_text):
         return get_array_input_value()
 
-    if assignment_type_text.startswith('struct'):
+    if is_class_type(assignment_type_text):
         return get_class_input_value(assignment_value_text, trace)
 
     raise NotImplementedError(f'\'{assignment_type_text}\' input type not implemented')
