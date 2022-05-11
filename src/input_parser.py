@@ -1,5 +1,7 @@
 import xml.etree.ElementTree as ET
 
+PRIMITIVE_TYPES = set(['int'])
+
 def get_inputs(xml_source: str):
     """
     Given an XML trace as string from JBMC, it produces a dictionary of input types and values
@@ -24,8 +26,8 @@ def get_inputs(xml_source: str):
                 trace.tag == 'assignment' and 
                 trace.attrib['base_name'].startswith('arg')
             ):
-                value_type = trace.find('type').text
-                actual_value = trace.find('full_lhs_value').text
+                value_type = get_input_type(trace)
+                actual_value = get_input_value(trace, goto_trace)
 
                 base_name = trace.get('base_name')
 
@@ -35,3 +37,56 @@ def get_inputs(xml_source: str):
         reason = goto_trace.find('failure').get('reason')
         inputs.append({'inputs': inputs_list, 'reason': reason})
     return inputs
+
+def get_input_type(assignment: ET.Element) -> str:
+    """Return the java type string"""
+    assert assignment.tag == 'assignment'
+    assignment_type_text = assignment.findtext('type')
+
+    if assignment_type_text in PRIMITIVE_TYPES:
+        return assignment_type_text
+
+    if assignment_type_text.startswith('struct java::array'):
+        return get_array_input_type(assignment_type_text)
+
+    if assignment_type_text.startswith('struct'):
+        return get_class_input_type(assignment_type_text)
+    
+    raise NotImplementedError(f'\'{assignment_type_text}\' input type not implemented')
+    
+def get_array_input_type(type_text: str) -> str:
+    """Returns the java type string for array types"""
+    pass
+
+def get_class_input_type(type_text: str) -> str:
+    """Returns the java type string for class types"""
+    assert type_text.startswith('struct')
+    class_name = type_text.split(' ')[1]
+    return class_name
+
+def get_input_value(assignment: ET.Element, trace: ET.Element) -> str:
+    assert assignment.tag == 'assignment'
+    assignment_value_text = assignment.findtext('full_lhs_value')
+    assignment_type_text = assignment.findtext('type')
+
+    if assignment_value_text == 'null':
+        return 'null'
+
+    if assignment_type_text in PRIMITIVE_TYPES:
+        return assignment_value_text
+    
+    if assignment_type_text.startswith('struct java::array'):
+        return get_array_input_value()
+
+    if assignment_type_text.startswith('struct'):
+        return get_class_input_value(assignment_value_text, trace)
+
+    raise NotImplementedError(f'\'{assignment_type_text}\' input type not implemented')
+
+def get_array_input_value() -> str:
+    pass
+
+def get_class_input_value(assignment_value_text: str, trace: ET.Element) -> str:
+    pass
+
+
