@@ -57,13 +57,16 @@ def get_input_type(assignment: ET.Element) -> str:
     
 def get_array_input_type(type_text: str) -> str:
     """Returns the java type string for array types"""
-    assert type_text.startswith('struct')
-    array_type = type_text.split(' ')[1]
-    if array_type.startswith('java::array['):
-        array_type = array_type.split('java::array[')[1]
-        array_type = array_type.split(']')[0]
+    array_type = None
+    if type_text.startswith('struct'):
+        array_type = type_text.split(' ')[1]
+        if array_type.startswith('java::array['):
+            array_type = array_type.split('java::array[')[1]
+            array_type = array_type.split(']')[0]
+        else:
+            array_type = get_class_input_type(type_text)
     else:
-        array_type = get_class_input_type(type_text)
+        array_type = type_text.split(" ")[0]
     return array_type + "[]"
 
 def get_class_input_type(type_text: str) -> str:
