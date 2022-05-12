@@ -5,7 +5,7 @@ from jbmc_runner import get_trace_xml
 from input_parser import get_inputs
 
 def main(argv):
-    jbmc_path = argv[1]
+    jbmc_path = argv[1] or './jbmc'
     file_path = argv[2]
     filename = file_path.split('.')[0]
 
@@ -13,7 +13,7 @@ def main(argv):
     compile_java_class(file_path)
 
     print('Running JBMC...')
-    trace_xml_source = get_trace_xml(jbmc_path, filename)
+    trace_xml_source = get_trace_xml(jbmc_path, filename, ['--unwind', '10'])
 
     print('Parsing counterexamples...')
     counterexample_inputs = get_inputs(trace_xml_source)
