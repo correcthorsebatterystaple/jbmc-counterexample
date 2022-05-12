@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ET
 from helpers import nested_set
-from input_type_checker import is_array_type, is_class_type, is_primitive_type
+from input_type_checker import is_array_type, is_class_type, is_primitive_type, is_string_type
 import csv
 
 def get_inputs(xml_source: str):
@@ -44,6 +44,9 @@ def get_input_type(assignment: ET.Element) -> str:
     assert assignment.tag == 'assignment'
     assignment_type_text = assignment.findtext('type')
 
+    if is_string_type(assignment_type_text):
+        return "String"
+
     if is_primitive_type(assignment_type_text):
         return assignment_type_text
 
@@ -86,6 +89,9 @@ def get_input_value(assignment: ET.Element, trace: ET.Element) -> str:
 
     if is_primitive_type(assignment_type_text):
         return assignment_value_text
+
+    if is_string_type(assignment_type_text):
+        return get_string_input_value(assignment_type_text, assignment_value_text, trace)
     
     if is_array_type(assignment_type_text):
         return get_array_input_value(assignment_type_text, assignment_value_text, trace)
@@ -94,6 +100,53 @@ def get_input_value(assignment: ET.Element, trace: ET.Element) -> str:
         return get_class_input_value(assignment_value_text, trace)
 
     raise NotImplementedError(f'\'{assignment_type_text}\' input type not implemented')
+
+def get_string_input_value(assignment_type_text, assignment_value_text, trace):
+    assignments = [a for a in trace.findall('assignment') if a.get('base_name') == assignment_value_text[1:]]
+    val = {}
+    for assignment in assignments:
+        full_lhs_text = assignment.findtext('full_lhs')
+        full_lhs_value_text = assignment.findtext('full_lhs_value')
+
+        if full_lhs_value_text.startswith('{'):
+            continue
+
+        if full_lhs_text == f'{assignment_value_text[1:]}.length':
+            val['length'] = full_lhs_value_text
+
+        if full_lhs_text == f'{assignment_value_text[1:]}.data':
+            if full_lhs_value_text.startswith('&'):
+                full_lhs_value_text = remove_dynamic_object_pointer_cast(full_lhs_value_text[1:])
+                val['value'], _ = get_string_value(full_lhs_value_text, trace)
+            elif full_lhs_value_text.startswith('dynamic_object'):
+                val['value'], _ = get_string_value(full_lhs_value_text, trace)
+            else: 
+                val['value'] = full_lhs_value_text
+
+    actual_array_value = list(csv.reader([val['value'][1:-1].strip()], skipinitialspace=True, delimiter=',', quotechar='\''))[0]
+    actual_array_value = ''.join(actual_array_value)
+    
+    return "\"" + actual_array_value + "\""
+
+
+def get_string_value(dynamic_obj_name, trace):
+    assignments = [a for a in trace.findall('assignment') if a.get('base_name') == dynamic_obj_name]
+    array_value = None
+    assignment_type = None
+    for assignment in assignments:
+        full_lhs_text = assignment.findtext('full_lhs')
+        full_lhs_value_text = assignment.findtext('full_lhs_value')
+        assignment_type = assignment.findtext('type')
+        if full_lhs_text == dynamic_obj_name:
+            if full_lhs_value_text.startswith('{'):
+                array_value = full_lhs_value_text
+            elif full_lhs_value_text.startswith('&'):
+                full_lhs_value_text = remove_dynamic_object_pointer_cast(full_lhs_value_text[1:])
+                array_value, assignment_type =  get_string_value(full_lhs_value_text, trace)
+            elif full_lhs_value_text.startswith('dynamic_object'):
+                array_value, assignment_type = get_string_value(full_lhs_value_text, trace)
+    
+    return array_value, assignment_type
 
 def get_array_input_value(assignment_type_text, assignment_value_text, trace) -> str:
     assignments = [a for a in trace.findall('assignment') if a.get('base_name') == assignment_value_text[1:]]
