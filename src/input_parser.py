@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 from helpers import nested_set
 from input_type_checker import is_array_type, is_class_type, is_primitive_type
+import csv
 
 def get_inputs(xml_source: str):
     """
@@ -56,7 +57,12 @@ def get_input_type(assignment: ET.Element) -> str:
     
 def get_array_input_type(type_text: str) -> str:
     """Returns the java type string for array types"""
-    pass
+    assert type_text.startswith('struct')
+    array_type = type_text.split(' ')[1]
+    assert array_type.startswith('java::array[')
+    array_type = array_type.split('java::array[')[1]
+    array_type = array_type.split(']')[0]
+    return array_type + "[]"
 
 def get_class_input_type(type_text: str) -> str:
     """Returns the java type string for class types"""
@@ -77,15 +83,63 @@ def get_input_value(assignment: ET.Element, trace: ET.Element) -> str:
         return assignment_value_text
     
     if is_array_type(assignment_type_text):
-        return get_array_input_value()
+        return get_array_input_value(assignment_type_text, assignment_value_text, trace)
 
     if is_class_type(assignment_type_text):
         return get_class_input_value(assignment_value_text, trace)
 
     raise NotImplementedError(f'\'{assignment_type_text}\' input type not implemented')
 
-def get_array_input_value() -> str:
-    pass
+def get_array_input_value(assignment_type_text, assignment_value_text, trace) -> str:
+    assignments = [a for a in trace.findall('assignment') if a.get('base_name') == assignment_value_text[1:]]
+    val = {}
+    for assignment in assignments:
+        full_lhs_text = assignment.findtext('full_lhs')
+        full_lhs_value_text = assignment.findtext('full_lhs_value')
+
+        if full_lhs_value_text.startswith('{'):
+            continue
+
+        if full_lhs_text == f'{assignment_value_text[1:]}.length':
+            val['length'] = full_lhs_value_text
+
+        if full_lhs_text == f'{assignment_value_text[1:]}.data':
+            if full_lhs_value_text.startswith('&'):
+                val['value'] = get_array_value(full_lhs_value_text[1:], trace)
+            elif full_lhs_value_text.startswith('dynamic_object'):
+                val['value'] = get_array_value(full_lhs_value_text, trace)
+            else: 
+                val['value'] = full_lhs_value_text
+    
+    # Convert the {} array into a list of elements
+    # This method will not split on delimeter when delimeter is within the quotechar
+    # e.g. '{ "abc", "def", "ghi,jkl"}' should come out as ["abc", "def", "ghi,jkl"]
+    actual_array_value = list(csv.reader([val['value'][1:-1]], delimiter=',', quotechar='"'))[0]
+    
+    # Get only the first "length" elements (Currently works only for 1-d arrays)
+    actual_array_value = actual_array_value[0: int(val["length"])]
+
+    # Join the array back in {} for Java initialisation
+    actual_array_value = '{' + ', '.join([str(x) for x in actual_array_value]) + '}'
+    
+    return "new " + get_array_input_type(assignment_type_text) + actual_array_value
+
+# Method to get the value of a 1-d array
+def get_array_value(dynamic_obj_name, trace):
+    assignments = [a for a in trace.findall('assignment') if a.get('base_name') == dynamic_obj_name]
+    array_value = None
+    for assignment in assignments:
+        full_lhs_text = assignment.findtext('full_lhs')
+        full_lhs_value_text = assignment.findtext('full_lhs_value')
+
+        if full_lhs_text == dynamic_obj_name:
+            if full_lhs_value_text.startswith('{'):
+                array_value = full_lhs_value_text
+            elif full_lhs_value_text.startswith('&'):
+                array_value =  get_array_value(full_lhs_value_text[1:], trace)
+            elif full_lhs_value_text.startswith('dynamic_object'):
+                array_value = get_array_value(full_lhs_value_text, trace)
+    return array_value
 
 def get_class_input_value(assignment_value_text: str, trace: ET.Element) -> dict:
     return get_dynamic_obj_value(assignment_value_text[1:], trace)
