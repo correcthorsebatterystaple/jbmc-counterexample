@@ -1,5 +1,6 @@
 class Input {
-	public static void test(String a, String b) {
-		assert !a.equals(b);
+	public static void test(String a) {
+		if(a != null)
+			assert !a.equals("FOO");
 	}
 }
