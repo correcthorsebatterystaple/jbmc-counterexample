@@ -8,3 +8,6 @@ def is_primitive_type(type_text: str) -> bool:
     PRIMITIVE_TYPES = set(['int'])
     return type_text in PRIMITIVE_TYPES
 
+def is_string_type(type_text: str) -> bool:
+    return type_text.startswith("struct java.lang.String")
+
