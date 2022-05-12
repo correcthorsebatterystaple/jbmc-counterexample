@@ -13,7 +13,7 @@ def main(argv):
     compile_java_class(file_path)
 
     print('Running JBMC...')
-    trace_xml_source = get_trace_xml(jbmc_path, filename, ['--unwind', '10'])
+    trace_xml_source = get_trace_xml(jbmc_path, filename, ['--unwind', '10', "-cp", "../../lib/core-models.jar:../../lib/cprover-api.jar:."])
 
     print('Parsing counterexamples...')
     counterexample_inputs = get_inputs(trace_xml_source)
