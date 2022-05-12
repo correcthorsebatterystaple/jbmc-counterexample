@@ -9,5 +9,9 @@ class Input {
                     x[index2] = x[index2 + 1];
                     x[index2 + 1] = temp;
                 }
+
+        assert x[0] <= x[1];
+        assert x[1] <= x[2];
+        assert x[2] <= x[3];
     }
 }
