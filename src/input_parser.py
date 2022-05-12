@@ -59,9 +59,11 @@ def get_array_input_type(type_text: str) -> str:
     """Returns the java type string for array types"""
     assert type_text.startswith('struct')
     array_type = type_text.split(' ')[1]
-    assert array_type.startswith('java::array[')
-    array_type = array_type.split('java::array[')[1]
-    array_type = array_type.split(']')[0]
+    if array_type.startswith('java::array['):
+        array_type = array_type.split('java::array[')[1]
+        array_type = array_type.split(']')[0]
+    else:
+        array_type = get_class_input_type(type_text)
     return array_type + "[]"
 
 def get_class_input_type(type_text: str) -> str:
@@ -105,41 +107,87 @@ def get_array_input_value(assignment_type_text, assignment_value_text, trace) ->
 
         if full_lhs_text == f'{assignment_value_text[1:]}.data':
             if full_lhs_value_text.startswith('&'):
-                val['value'] = get_array_value(full_lhs_value_text[1:], trace)
+                full_lhs_value_text = remove_dynamic_object_pointer_cast(full_lhs_value_text[1:])
+                val['value'], val["type"] = get_array_value(full_lhs_value_text, trace)
             elif full_lhs_value_text.startswith('dynamic_object'):
-                val['value'] = get_array_value(full_lhs_value_text, trace)
+                val['value'], val["type"] = get_array_value(full_lhs_value_text, trace)
             else: 
                 val['value'] = full_lhs_value_text
     
     # Convert the {} array into a list of elements
     # This method will not split on delimeter when delimeter is within the quotechar
     # e.g. '{ "abc", "def", "ghi,jkl"}' should come out as ["abc", "def", "ghi,jkl"]
-    actual_array_value = list(csv.reader([val['value'][1:-1]], delimiter=',', quotechar='"'))[0]
-    
+    actual_array_value = val['value']
+    #print(actual_array_value)
     # Get only the first "length" elements (Currently works only for 1-d arrays)
     actual_array_value = actual_array_value[0: int(val["length"])]
 
-    # Join the array back in {} for Java initialisation
-    actual_array_value = '{' + ', '.join([str(x) for x in actual_array_value]) + '}'
+    # for index, el in enumerate(actual_array_value):
+    #     if isinstance(el, dict):
+    #         actual_array_value[index] = "\"" + str(el) + "\""
     
-    return "new " + get_array_input_type(assignment_type_text) + actual_array_value
+    # Join the array back in {} for Java initialisation
+    # actual_array_value = '{' + ', '.join([str(x) for x in actual_array_value]) + '}'
+    val["value"] = actual_array_value
+    return [get_array_input_type(val["type"]), val["value"]]
+    #return "new " + get_array_input_type(val["type"]) + actual_array_value
+
+def remove_dynamic_object_pointer_cast(dynamic_obj_name):
+    if dynamic_obj_name.startswith("((void *)"):
+        dynamic_obj_name = dynamic_obj_name.split("((void *)")[1]
+    dynamic_obj_name = dynamic_obj_name.split("[")[0]
+    return dynamic_obj_name
 
 # Method to get the value of a 1-d array
 def get_array_value(dynamic_obj_name, trace):
     assignments = [a for a in trace.findall('assignment') if a.get('base_name') == dynamic_obj_name]
     array_value = None
+    assignment_type = None
     for assignment in assignments:
         full_lhs_text = assignment.findtext('full_lhs')
         full_lhs_value_text = assignment.findtext('full_lhs_value')
-
+        assignment_type = assignment.findtext('type')
         if full_lhs_text == dynamic_obj_name:
             if full_lhs_value_text.startswith('{'):
                 array_value = full_lhs_value_text
             elif full_lhs_value_text.startswith('&'):
-                array_value =  get_array_value(full_lhs_value_text[1:], trace)
+                full_lhs_value_text = remove_dynamic_object_pointer_cast(full_lhs_value_text[1:])
+                array_value, assignment_type =  get_array_value(full_lhs_value_text, trace)
             elif full_lhs_value_text.startswith('dynamic_object'):
-                array_value = get_array_value(full_lhs_value_text, trace)
-    return array_value
+                array_value, assignment_type = get_array_value(full_lhs_value_text, trace)
+
+    
+    actual_array_value = list(csv.reader([array_value[1:-1]], delimiter=',', quotechar='"'))[0]
+    for assignment in assignments:
+        full_lhs_text = assignment.findtext('full_lhs')
+        full_lhs_value_text = assignment.findtext('full_lhs_value')
+        assignment_type = assignment.findtext('type')
+
+        if full_lhs_text.startswith(dynamic_obj_name + "["):
+            index = int(full_lhs_text.split(dynamic_obj_name + "[")[1].split("L")[0])
+
+            index_array_value = actual_array_value[index]
+            index_array_value = full_lhs_value_text
+            # if full_lhs_value_text.startswith('{'):
+            #     index_array_value = full_lhs_value_text
+            # elif full_lhs_value_text.startswith('&'):
+            #     full_lhs_value_text = remove_dynamic_object_pointer_cast(full_lhs_value_text[1:])
+            #     index_array_value, assignment_type =  get_array_value(full_lhs_value_text, trace)
+            # elif full_lhs_value_text.startswith('dynamic_object'):
+            #     index_array_value, assignment_type = get_array_value(full_lhs_value_text, trace)
+
+            #print(dynamic_obj_name, array_value)
+            actual_array_value[index] = index_array_value
+            array_value = '{' + ','.join([str(x) for x in actual_array_value]) + '}'
+    #print(array_value)
+    for index,value in enumerate(actual_array_value):
+        if value.startswith("&"):
+            actual_array_value[index] = get_dynamic_obj_value(value[1:], trace)
+
+
+    #array_value = '{' + ','.join([str(x) for x in actual_array_value]) + '}'
+    #print(actual_array_value)
+    return actual_array_value, assignment_type
 
 def get_class_input_value(assignment_value_text: str, trace: ET.Element) -> dict:
     return get_dynamic_obj_value(assignment_value_text[1:], trace)
