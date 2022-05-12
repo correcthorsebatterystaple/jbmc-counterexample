@@ -121,19 +121,13 @@ def get_array_input_value(assignment_type_text, assignment_value_text, trace) ->
     # This method will not split on delimeter when delimeter is within the quotechar
     # e.g. '{ "abc", "def", "ghi,jkl"}' should come out as ["abc", "def", "ghi,jkl"]
     actual_array_value = val['value']
-    #print(actual_array_value)
+
     # Get only the first "length" elements (Currently works only for 1-d arrays)
     actual_array_value = actual_array_value[0: int(val["length"])]
-
-    # for index, el in enumerate(actual_array_value):
-    #     if isinstance(el, dict):
-    #         actual_array_value[index] = "\"" + str(el) + "\""
     
     # Join the array back in {} for Java initialisation
-    # actual_array_value = '{' + ', '.join([str(x) for x in actual_array_value]) + '}'
     val["value"] = actual_array_value
     return [get_array_input_type(val["type"]), val["value"]]
-    #return "new " + get_array_input_type(val["type"]) + actual_array_value
 
 def remove_dynamic_object_pointer_cast(dynamic_obj_name):
     if dynamic_obj_name.startswith("((void *)"):
@@ -171,25 +165,13 @@ def get_array_value(dynamic_obj_name, trace):
 
             index_array_value = actual_array_value[index]
             index_array_value = full_lhs_value_text
-            # if full_lhs_value_text.startswith('{'):
-            #     index_array_value = full_lhs_value_text
-            # elif full_lhs_value_text.startswith('&'):
-            #     full_lhs_value_text = remove_dynamic_object_pointer_cast(full_lhs_value_text[1:])
-            #     index_array_value, assignment_type =  get_array_value(full_lhs_value_text, trace)
-            # elif full_lhs_value_text.startswith('dynamic_object'):
-            #     index_array_value, assignment_type = get_array_value(full_lhs_value_text, trace)
-
-            #print(dynamic_obj_name, array_value)
             actual_array_value[index] = index_array_value
             array_value = '{' + ','.join([str(x) for x in actual_array_value]) + '}'
-    #print(array_value)
+
     for index,value in enumerate(actual_array_value):
         if value.startswith("&"):
             actual_array_value[index] = get_dynamic_obj_value(value[1:], trace)
 
-
-    #array_value = '{' + ','.join([str(x) for x in actual_array_value]) + '}'
-    #print(actual_array_value)
     return actual_array_value, assignment_type
 
 def get_class_input_value(assignment_value_text: str, trace: ET.Element) -> dict:

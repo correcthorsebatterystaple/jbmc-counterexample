@@ -17,7 +17,6 @@ def generate_java_source(test_class_name: str, out_class_name: str, counterexamp
         if isinstance(input_value, list):
             array_type = input_value[0]
             array_value = input_value[1]
-            print("arr:", array_value)
             for index, el in enumerate(array_value):
                 if isinstance(el, dict):
                     var_name_to_generate = var_name + str(var_index)
@@ -26,18 +25,11 @@ def generate_java_source(test_class_name: str, out_class_name: str, counterexamp
                     array_value[index] = var_name_to_generate
 
             array_value = '{' + ', '.join([str(x) for x in array_value]) + '}'
-
             input_value = "new " + array_type + array_value
 
         if input_type == "reference[]":
-            # array = input_value[input_value.find("{"):]
-            # actual_array_value = list(csv.reader([array[1:-1]], delimiter=',', quotechar='"'))[0]
-            # print(actual_array_value)
-            # for el in actual_array_value:
-            #     if isinstance(el, dict):
-            #         source_builder.extend(generate_obj_init(input_var, input_value, indent=2))
-            #         continue
             input_type = input_value.split("new ")[1].split("{")[0]
+
         lhs = f"{input_type} {input_var}"
         rhs = f"{input_value}"
         expr = f"{lhs} = {rhs}"
