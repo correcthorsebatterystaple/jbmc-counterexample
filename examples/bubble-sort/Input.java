@@ -1,4 +1,4 @@
-public class Input {
+class Input {
     public static void test(int[] x) {
         int length = x.length;
         for (int index1 = 0; index1 < length - 1; index1++)

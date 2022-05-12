@@ -1,4 +1,4 @@
-public class Input {
+class Input {
     public static void test(A[] x) {
         if(x != null)
             if(x.length != 0)

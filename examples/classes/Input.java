@@ -1,4 +1,4 @@
-public class Input {
+class Input {
     static class A {
         int x;
     }

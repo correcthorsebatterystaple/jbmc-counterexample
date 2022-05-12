@@ -1,4 +1,4 @@
-public class Input {
+class Input {
     public static int test(int[] x, int searchedValue) {
         int left = 0, right = x.length - 1;
         while (left <= right) {
