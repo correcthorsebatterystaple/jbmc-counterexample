@@ -246,6 +246,9 @@ def get_dynamic_obj_value(dynamic_obj_name: str, trace: ET.Element) -> dict:
             val['__class'] = full_lhs_value_text.strip('"').split('::')[-1]
             continue
 
+        if full_lhs_text == f'{dynamic_obj_name}.@java.lang.Object.cproverMonitorCount':
+            continue
+
         # if value is another dynamic object then make recursive call
         if full_lhs_value_text.startswith('&'):
             value = get_dynamic_obj_value(full_lhs_value_text[1:], trace)
